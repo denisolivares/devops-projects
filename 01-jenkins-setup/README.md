@@ -41,6 +41,102 @@ And finally figure out that maybe the argument was duplicated and probably could
 
 Done! That really did the trick. Moved forward and was able to deploy the whole stack
 
+#### Want to deployt it?
+
+```bash
+aws ssm put-parameter \
+    --name "parameter-name" \
+    --value "a-parameter-value, for example P@ssW%rd#1" \
+    --type "SecureString" \
+    --tags "Key=tag-key,Value=tag-value"
+```
+
+```bash
+aws ssm put-parameter \
+    --name "/devops-tools/jenkins/id_rsa" \
+    --description "jenkins-private" \
+    --value "< ADD THE PRIVATE KEY HERE >" \
+    --type "SecureString" \
+    --tags "Key=jenkins,Value=private"
+```
+
+```bash
+aws ssm put-parameter \
+    --name "/devops-tools/jenkins/id_rsa.pub" \
+    --description "jenkins-public" \
+    --value "< ADD THE PUBLIC KEY HERE >" \
+    --type "SecureString" \
+    --tags "Key=jenkins,Value=public"
+```
+
+```bash
+cd terraform/iam
+terraform init
+terraform plan
+terraform apply --auto-approve
+```
+
+```bash
+cd terraform/efs 
+terraform init
+terraform plan
+terraform apply --auto-approve
+```
+
+```bash
+packer build -var "efs_mount_point=< efs mount point URL >" jenkins-controller.pkr.hcl
+```
+
+- Update the AMI-ID @ lb-asg terraform file
+
+```bash
+packer build -var "public_key_path=/devops-tools/jenkins/id_rsa.pub" jenkins-agent.pkr.hcl
+```
+
+- Update the AMI-ID @ agent terraform file
+
+```bash
+cd terraform/iam
+terraform init
+terraform plan
+terraform apply --auto-approve
+```
+
+- Get ALB DNS
+
+```bash
+aws ec2 describe-instances --filter "Name=tag:Name,Values=jenkins-controller" --query 'Reservations[].Instances[?State.Name==`running`].PublicIpAddress' --output text
+```
+
+- Login to the server and get the admin password.
+
+```bash
+sudo cat /data/jenkins/secrets/initialAdminPassword
+```
+
+1. Replace subnet IDs with your subnet IDs
+1. Replace techiescamp with your ssh key pair name.
+1. Replace AMI Id ami-047fe714e6e0ac977 with the AMI id of your Jenkins agent AMI Id
+1. If you want more than one Jenkins agent, you can replace the instance_count number with the required number of agents.
+
+```bash
+cd terraform/agent
+terraform init
+terraform plan
+terraform apply --auto-approve
+```
+
+```bash
+aws ssm get-parameters \
+    --name "/devops-tools/jenkins/id_rsa" \
+    --with-decryption
+
+aws ssm get-parameters \
+    --name "/devops-tools/jenkins/id_rsa.pub" \
+    --with-decryption
+
+```
+
 ### Teardown
 
 Jenkins Controller AMI were created:
@@ -55,7 +151,7 @@ Jenkins URL: < jennkins URL >
 To deregister the AMIs, use the following AWS CLI commands
 
 ```bash
-aws ec2 describe-images --filters "Name=name,Values=jenkins-controller,jenkins-agent" --query 'Images[*].ImageId' --output text | tr '\t' '\n' | xargs -I {} aws ec2 deregister-image --image-id {}
+aws ec2 describe-images --filters "Name=name,Values=jenkins-controller,jenkins-controller-02,jenkins-agent" --query 'Images[*].ImageId' --output text | tr '\t' '\n' | xargs -I {} aws ec2 deregister-image --image-id {}
 ```
 
 To delete the parameter store values, use the following command.
