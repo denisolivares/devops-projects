@@ -2,7 +2,6 @@
 
 Content based on a Live session from LINUXTips: [Como ter um SSH Super seguro com LINUX + Vault](https://www.youtube.com/watch?v=QIEH3DXXkFU)
 
-
 gerar chave ssh
 hostname vault-server
 echo vault-server > /etc/hostname
